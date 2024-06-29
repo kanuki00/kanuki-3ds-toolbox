@@ -215,6 +215,7 @@ def decompress_file(f):
     return decompress_raw(data, decompressed_size)
 
 def main(args=None):
+    of_name = ""
     if args is None:
         args = sys.argv[1:]
 
@@ -223,6 +224,11 @@ def main(args=None):
         overlay = True
     else:
         overlay = False
+        
+    if '-of' in args:
+        of_flag_index = args.index('-of')
+        if len(args) > of_flag_index+1:
+            of_name = args[of_flag_index+1]
 
     if len(args) < 1 or args[0] == '-':
         if overlay:
@@ -249,7 +255,10 @@ def main(args=None):
         if overlay:
             decompress_overlay(f, stdout)
         else:
-            stdout.write(decompress_file(f))
+            # writing decompressed data to new output file (of)
+            of = open(of_name, "wb")
+            of.write(decompress_file(f))
+            of.close()
     except IOError as e:
         if e.errno == EPIPE:
             # don't complain about a broken pipe
