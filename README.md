@@ -1,4 +1,3 @@
-
 Nintendo LZ compression
 =======================
 
@@ -30,3 +29,12 @@ Files
 * `armdecomp.py` - Command-line tool for decompressing overlays or arm9.bin. Python 2 version.
 * `armdecomp3.py` - Command-line tool for decompressing overlays or arm9.bin. Python 3 version. About twice as fast as the Python 2 version. The code has already been merged into `lzss3.py`, so this file isn't really needed.
 * `test_lzss3.py` - Tests for `lzss3.py` and `compress.py`.
+
+DARCTool
+========
+This is a tool for extracting and building 3DS darc archive files. In some cases the file extension is ".arc". Remember, if the archive is compressed you must use another tool to handle that.  
+
+Also note that when building archives, it goes by the order returned by readdir(), hence the order in the archive in some cases may not match the original official archive which was extracted previously. Due to this and alignment, the built archive filesize may not match the original official archive filesize either, but this doesn't actually matter.  
+
+The utils.* and types.h files are from ctrtool.
+
