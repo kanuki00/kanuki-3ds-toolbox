@@ -3,29 +3,87 @@ import sys
 def get_valid_magic(filename):
     ifm=open(filename, "rb")
     magic = ifm.read(4).decode('utf-8') # read first 4 bytes and decode to string
-    ifm.close
+    ifm.close()
     if magic == 'PSLB': 
         return True
     else:
         return False
-    
+        
+def int_from_loose_bytes(bytes, little_endian):
+    intarr = []
+    for byte in bytes:
+        intarr.append(int.from_bytes(byte))
+
+    if little_endian:
+        intarr.reverse()
+
+    arr = bytearray(intarr)
+    return int(arr.hex(), 16)
 
 def convert(filename):
     if get_valid_magic(filename):
         infile = open(filename, "rb") # read bytes
-        
         ba = bytearray(infile.read())
         
-        for i in range(16, len(ba)):
+        #print(int_from_loose_bytes([b'\x5f', b'\x03'], False))
+        skip = 0
+        value_flag = False
+        map_flag = False
+        map_int_byte_count = 0
+        map_int_bytes = []
+        list_flag = False
+        list_int_byte_count = 0
+        list_int_bytes = []
+        for i in range(16, len(ba)): # start at offset 0x10 to cut out header
             byte = ba[i].to_bytes(1)
-            #if byte == b'\x02':
-            #    print("int32")
-            #if byte == b'\x03':
-            #    print("float")
-            #else:
+            ###
+            if byte == bytes.fromhex('00') and map_flag == False and list_flag == False:
+                #value_flag = True
+                print("some kind of value?")
+                continue
+            
+            if byte == bytes.fromhex('05') and list_flag == False and value_flag == False:
+                map_flag = True
+                continue
+            if map_flag and map_int_byte_count < 2:
+                map_int_bytes.append(byte)
+                map_int_byte_count += 1    
+                if map_int_byte_count == 2:
+                    print('Map, %3d entries' % (int_from_loose_bytes(map_int_bytes, True)))
+                    map_flag = False
+                    map_int_byte_count = 0
+                    map_int_bytes = []
+                    continue
+                continue
+                
+            if byte == bytes.fromhex('06') and map_flag == False and value_flag == False:
+                list_flag = True
+                continue
+            if list_flag and list_int_byte_count < 2:
+                list_int_bytes.append(byte)
+                list_int_byte_count += 1    
+                if list_int_byte_count == 2:
+                    print('List, %3d entries' % (int_from_loose_bytes(list_int_bytes, True)))
+                    list_flag = False
+                    list_int_byte_count = 0
+                    list_int_bytes = []
+                    continue
+                continue
+            
+            #print(byte.hex())
             print(byte)
+            
+        infile.close()
     else:
         print("Invalid magic word!")
+        
+def bytedump(filename): # debug
+    infile = open(filename, "rb") # read bytes
+    ba = bytearray(infile.read())
+    for b in ba:
+        byte = b.to_bytes(1)
+        print(byte)
+    infile.close()
 
 def main():
     args = sys.argv[1:]
@@ -56,6 +114,7 @@ def main():
                 
     if infile_specified:
         convert(infile_name)
+        #bytedump(infile_name)
         
     return 0
     
