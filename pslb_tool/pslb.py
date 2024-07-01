@@ -1,4 +1,10 @@
 import sys
+import string
+
+printbytes = []
+my_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_@'
+for c in my_chars:
+    printbytes.append(c.encode('utf-8'))
 
 def get_valid_magic(filename):
     ifm=open(filename, "rb")
@@ -19,15 +25,18 @@ def int_from_loose_bytes(bytes, little_endian):
 
     arr = bytearray(intarr)
     return int(arr.hex(), 16)
+    
+
 
 def convert(filename):
     if get_valid_magic(filename):
         infile = open(filename, "rb") # read bytes
         ba = bytearray(infile.read())
-        
-        #print(int_from_loose_bytes([b'\x5f', b'\x03'], False))
+        #######
         skip = 0
-        value_flag = False
+        int_flag = False
+        int_int_byte_count = 0
+        int_int_bytes = []
         map_flag = False
         map_int_byte_count = 0
         map_int_bytes = []
@@ -36,13 +45,51 @@ def convert(filename):
         list_int_bytes = []
         for i in range(16, len(ba)): # start at offset 0x10 to cut out header
             byte = ba[i].to_bytes(1)
-            ###
-            if byte == bytes.fromhex('00') and map_flag == False and list_flag == False:
-                #value_flag = True
-                print("some kind of value?")
+            
+            #######
+            if skip > 0:
+                skip -= 1
                 continue
             
-            if byte == bytes.fromhex('05') and list_flag == False and value_flag == False:
+            if byte != bytes.fromhex('00') and byte not in printbytes:
+                if i+4+1 > len(ba):
+                    continue
+                next_byte = ba[i+1].to_bytes(1)
+                string_start_byte = ba[i+4].to_bytes(1)
+                possible_str_len = int_from_loose_bytes([byte, next_byte], True)
+                if string_start_byte in printbytes:
+                    #print(byte.hex()+" possible value "+string_start_byte.decode('utf-8')+" "+str(possible_str_len))
+                    intarr = []
+                    fail = False
+                    for j in range(possible_str_len):
+                        if i+j+4+1 > len(ba):
+                            fail = True
+                            break
+                        sbyte = ba[i+j+4].to_bytes(1)
+                        if sbyte not in printbytes:
+                            fail = True
+                            break
+                        intarr.append(int.from_bytes(sbyte))
+                    if not fail:
+                        print("%s %1d" % (bytearray(intarr).decode('utf-8'), possible_str_len))
+                        skip = possible_str_len+3
+                    continue
+                    
+            if byte == bytes.fromhex('02') and map_flag == False and list_flag == False:
+                int_flag = True
+                continue
+            if int_flag and int_int_byte_count < 2:
+                int_int_bytes.append(byte)
+                int_int_byte_count += 1    
+                if int_int_byte_count == 2:
+                    print('Int32, %3d' % (int_from_loose_bytes(int_int_bytes, True)))
+                    int_flag = False
+                    int_int_byte_count = 0
+                    int_int_bytes = []
+                    continue
+                continue
+                           
+            if byte == bytes.fromhex('05') and list_flag == False:
                 map_flag = True
                 continue
             if map_flag and map_int_byte_count < 2:
@@ -56,7 +103,7 @@ def convert(filename):
                     continue
                 continue
                 
-            if byte == bytes.fromhex('06') and map_flag == False and value_flag == False:
+            if byte == bytes.fromhex('06') and map_flag == False:
                 list_flag = True
                 continue
             if list_flag and list_int_byte_count < 2:
@@ -68,7 +115,7 @@ def convert(filename):
                     list_int_byte_count = 0
                     list_int_bytes = []
                     continue
-                continue
+                continue 
             
             #print(byte.hex())
             print(byte)
