@@ -34,6 +34,9 @@ def convert(filename):
         ba = bytearray(infile.read())
         #######
         skip = 0
+        struct_name_stored = False
+        structure_name_store = ""
+        string_flag = False
         int_flag = False
         int_int_byte_count = 0
         int_int_bytes = []
@@ -50,6 +53,10 @@ def convert(filename):
             if skip > 0:
                 skip -= 1
                 continue
+                
+            if byte == bytes.fromhex('00') and string_flag == False and int_flag == False and map_flag == False and list_flag == False:
+                #print("filler zero")
+                continue
             
             if byte != bytes.fromhex('00') and byte not in printbytes:
                 if i+4+1 > len(ba):
@@ -58,7 +65,6 @@ def convert(filename):
                 string_start_byte = ba[i+4].to_bytes(1)
                 possible_str_len = int_from_loose_bytes([byte, next_byte], True)
                 if string_start_byte in printbytes:
-                    #print(byte.hex()+" possible value "+string_start_byte.decode('utf-8')+" "+str(possible_str_len))
                     intarr = []
                     fail = False
                     for j in range(possible_str_len):
@@ -71,11 +77,20 @@ def convert(filename):
                             break
                         intarr.append(int.from_bytes(sbyte))
                     if not fail:
-                        print("%s %1d" % (bytearray(intarr).decode('utf-8'), possible_str_len))
-                        skip = possible_str_len+3
+                        if string_flag:
+                            print("%s (string length: %1d)" % (bytearray(intarr).decode('utf-8'), possible_str_len))
+                            string_flag = False
+                            skip = possible_str_len+3
+                        else:
+                            struct_name_stored = True
+                            structure_name_store = bytearray(intarr).decode('utf-8')
+                            skip = possible_str_len+3
                     continue
+            if byte == bytes.fromhex('01') and map_flag == False and list_flag == False:
+                string_flag = True
+                continue
                     
-            if byte == bytes.fromhex('02') and map_flag == False and list_flag == False:
+            if byte == bytes.fromhex('02') and string_flag == False and map_flag == False and list_flag == False:
                 int_flag = True
                 continue
             if int_flag and int_int_byte_count < 2:
@@ -89,28 +104,38 @@ def convert(filename):
                     continue
                 continue
                            
-            if byte == bytes.fromhex('05') and list_flag == False:
+            if byte == bytes.fromhex('05') and string_flag == False and int_flag == False and list_flag == False:
                 map_flag = True
                 continue
             if map_flag and map_int_byte_count < 2:
                 map_int_bytes.append(byte)
                 map_int_byte_count += 1    
                 if map_int_byte_count == 2:
-                    print('Map, %3d entries' % (int_from_loose_bytes(map_int_bytes, True)))
+                    if struct_name_stored:
+                        print('Map %s, %3d entries' % (structure_name_store, int_from_loose_bytes(map_int_bytes, True)))
+                        struct_name_stored = False
+                        structure_name_store = ""
+                    else:
+                        print('Map, %3d entries' % (int_from_loose_bytes(map_int_bytes, True)))
                     map_flag = False
                     map_int_byte_count = 0
                     map_int_bytes = []
                     continue
                 continue
                 
-            if byte == bytes.fromhex('06') and map_flag == False:
+            if byte == bytes.fromhex('06') and string_flag == False and int_flag == False and map_flag == False:
                 list_flag = True
                 continue
             if list_flag and list_int_byte_count < 2:
                 list_int_bytes.append(byte)
                 list_int_byte_count += 1    
                 if list_int_byte_count == 2:
-                    print('List, %3d entries' % (int_from_loose_bytes(list_int_bytes, True)))
+                    if struct_name_stored:
+                        print('List %s, %3d entries' % (structure_name_store, int_from_loose_bytes(list_int_bytes, True)))
+                        struct_name_stored = False
+                        structure_name_store = ""
+                    else:
+                        print('List, %3d entries' % (int_from_loose_bytes(list_int_bytes, True)))
                     list_flag = False
                     list_int_byte_count = 0
                     list_int_bytes = []
