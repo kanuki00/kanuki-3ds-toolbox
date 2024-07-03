@@ -38,3 +38,11 @@ Also note that when building archives, it goes by the order returned by readdir(
 
 The utils.* and types.h files are from ctrtool.
 
+PSLB Tool
+=========
+This is a tool for converting PSLB files into human readable json files. PSLB files often show up in games like "Kid Icarus: Uprising" with the extention .json, even though they are not actual json files.
+Command line usage:
+`python pslb.py [inputfile] [outputfile]`
+
+Documentation of the PSLB format: [https://www.3dbrew.org/wiki/PSLB][]
+[https://www.3dbrew.org/wiki/PSLB]: https://www.3dbrew.org/wiki/PSLB
