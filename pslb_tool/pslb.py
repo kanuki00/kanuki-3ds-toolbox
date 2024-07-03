@@ -1,4 +1,5 @@
 import sys
+import struct
 
 ##################
 printbytes = []
@@ -36,7 +37,7 @@ list_flag = False
 string_len = 0
 string_literal = ""
 int32_literal = 0
-float_literal = ""
+float_literal = 0.0
 byte_literal = 0
 map_keycount = 0
 list_entriescount = 0
@@ -59,6 +60,12 @@ def int32get(bytearray, index):
     db3 = bytearray[index+3].to_bytes(1) # data byte 3
     db4 = bytearray[index+4].to_bytes(1) # data byte 4
     return iflb([db1, db2, db3, db4], True) # return int that these bytes represent. in little endian form.
+    
+def tabstring(count):
+    result = ""
+    for i in range(count):
+        result+="\t"
+    return result
 
 def convert(filename, outfilename):
     file = open(filename, "rb")
@@ -80,7 +87,7 @@ def convert(filename, outfilename):
         if comp > 0:
             comp -= 1
             
-        ### Checking byte
+        ### Checking byte ###
         # MapKey
         if byte not in printbytes and comp == 0:
             stage1 = True                                   ### STAGE 1
@@ -148,7 +155,7 @@ def convert(filename, outfilename):
                 intarr.append(int.from_bytes(fba[i+4].to_bytes(1)))
                 intarr.reverse() # reverse because we want little endian
                 floathex = bytearray(intarr).hex()
-                float_literal = floathex
+                float_literal = struct.unpack('!f', bytes.fromhex(floathex))[0]
             comp = 4
         # Byte
         if byte == b'\x04' and comp == 0 and not map_key_flag:
@@ -167,99 +174,78 @@ def convert(filename, outfilename):
             list_entriescount = int32get(fba, i)
             comp = 4
 
-        ### Printing
-        '''
-        if byte in printbytes and not int32_flag:
-            type = ""
-            # STRING
-            if string_flag and comp == 0:
-                type = "String end"
-                string_len = 0
-                string_literal = ""
-                string_flag = False
-            # MAPKEY
-            if map_key_flag and comp == 0:
-                type = "MapKey end"
-                map_key_string_len = 0
-                map_key_string_literal = ""
-                map_key_flag = False
-            
-            try:    
-                print("%s %s" % (byte.decode('utf-8'), type))
-            except BrokenPipeError:
-                pass
-        '''
-        if True:
-            type = ""
+        ### Printing ###
+        type = ""
+        should_print = False
+        
+        # STRING
+        if string_flag and comp == 4 + string_len:
+            type = "String (length=%d, value=%s)" % (string_len, string_literal)
+            should_print = True
+        if string_flag and comp == 0:
+            type = "String end"
+            string_len = 0
+            string_literal = ""
+            string_flag = False
             should_print = False
-            # STRING
-            if string_flag and comp == 4 + string_len:
-                type = "String (length=%d, value=%s)" % (string_len, string_literal)
-                should_print = True
-            if string_flag and comp == 0:
-                type = "String end"
-                string_len = 0
-                string_literal = ""
-                string_flag = False
-                should_print = False
-            # INT32
-            if int32_flag and comp == 4:
-                type = "int32 (value=%d)" % (int32_literal)
-                should_print = True
-            if int32_flag and comp == 0:
-                type = "int32 end"
-                int32_literal = 0
-                int32_flag = False
-                should_print = False
-            # FLOAT
-            if float_flag and comp == 4:
-                type = "float (value=%s)" % (float_literal)
-                should_print = True
-            if float_flag and comp == 0:
-                float_literal = ""
-                float_flag = False
-                should_print = False
-            # BYTE
-            if byte_flag and comp == 2:
-                type = "Byte (value=%d)" % (byte_literal)
-                should_print = True
-            if byte_flag and comp == 1:
-                type = "Byte end"
-                byte_literal = 0
-                byte_flag = False
-                should_print = False
-            # MAP
-            if map_flag and comp == 4:
-                type = "Map (keys=%d)" % (map_keycount)
-                should_print = True
-            if map_flag and comp == 0:
-                type = "Map end"
-                map_keycount = 0
-                map_flag = False
-                should_print = False
-            # LIST            
-            if list_flag and comp == 4:
-                type = "List (entries=%d)" % (list_entriescount)
-                should_print = True
-            if list_flag and comp == 0:
-                type = "List end"
-                list_entriescount = 0
-                list_flag = False
-                should_print = False
-            # MAPKEY
-            if map_key_flag and comp == 3 + map_key_string_len:
-                type = "MapKey (string_length=%d, string_value=%s)" % (map_key_string_len, map_key_string_literal)
-                should_print = True
-            if map_key_flag and comp == 0:
-                type = "MapKey end"
-                map_key_string_len = 0
-                map_key_string_literal = ""
-                map_key_flag = False
-                should_print = False
-                
-            if should_print:    
-                #print("0x%s %s" % (byte.hex(), type))
-                outputfile.write("%s\n" % (type))
+        # INT32
+        if int32_flag and comp == 4:
+            type = "int32 (value=%d)" % (int32_literal)
+            should_print = True
+        if int32_flag and comp == 0:
+            type = "int32 end"
+            int32_literal = 0
+            int32_flag = False
+            should_print = False
+        # FLOAT
+        if float_flag and comp == 4:
+            type = "float (value=%f)" % (float_literal)
+            should_print = True
+        if float_flag and comp == 0:
+            float_literal = 0.0
+            float_flag = False
+            should_print = False
+        # BYTE
+        if byte_flag and comp == 2:
+            type = "Byte (value=%d)" % (byte_literal)
+            should_print = True
+        if byte_flag and comp == 1:
+            type = "Byte end"
+            byte_literal = 0
+            byte_flag = False
+            should_print = False
+        # MAP
+        if map_flag and comp == 4:
+            type = "Map (keys=%d)" % (map_keycount)
+            should_print = True
+        if map_flag and comp == 0:
+            type = "Map end"
+            map_keycount = 0
+            map_flag = False
+            should_print = False
+        # LIST            
+        if list_flag and comp == 4:
+            type = "List (entries=%d)" % (list_entriescount)
+            should_print = True
+        if list_flag and comp == 0:
+            type = "List end"
+            list_entriescount = 0
+            list_flag = False
+            should_print = False
+        # MAPKEY
+        if map_key_flag and comp == 3 + map_key_string_len:
+            type = "MapKey (string_length=%d, string_value=%s)" % (map_key_string_len, map_key_string_literal)
+            should_print = True
+        if map_key_flag and comp == 0:
+            type = "MapKey end"
+            map_key_string_len = 0
+            map_key_string_literal = ""
+            map_key_flag = False
+            should_print = False
+            
+        if should_print:    
+            #print("0x%s %s" % (byte.hex(), type))
+            outputfile.write("%s\n" % (type))
 
 def main():
     args = sys.argv[1:]
