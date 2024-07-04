@@ -35,6 +35,7 @@ class fo:
 formatstack = []
 mapkey_format_flag = False
 mapkey_type_store = ""
+mapkey_tabs_store = ""
 
 ########################
 ### Helper functions ###
@@ -64,29 +65,43 @@ def tabstring(count):
 def formattype(base, instgtype, instgsize):
     
     global mapkey_format_flag
+    global mapkey_tabs_store
     global formatstack
-    #tabbedbase = "%s%s" % (tabstring(len(formatstack)), base)
+    if mapkey_format_flag:
+        mapkey_tabs_store = tabstring(len(formatstack))
+    tabbedbase = "%s%s" % (tabstring(len(formatstack)), base)    
     result = ""
+    
     if instgtype == "map":
         if len(formatstack) > 0:
             formatstack[0].size -= 1
         formatstack.insert(0, fo("map", instgsize))
-        #result = "%s\n%s{" % (tabbedbase, tabstring(len(formatstack)))
-        result = "%s\n{" % (base)
+        if mapkey_format_flag:
+            result = "%s\n%s{" % (base, tabstring(len(formatstack)-1))
+        else:
+            result = "%s\n%s{" % (tabbedbase, tabstring(len(formatstack)-1))
     elif instgtype == "list":
         if len(formatstack) > 0:
             formatstack[0].size -= 1
         formatstack.insert(0, fo("list", instgsize))
-        #result = "%s\n%s[" % (tabbedbase, tabstring(len(formatstack)))
-        result = "%s\n[" % (base)
+        if mapkey_format_flag:
+            result = "%s\n%s[" % (base, tabstring(len(formatstack)-1))
+        else:
+            result = "%s\n%s[" % (tabbedbase, tabstring(len(formatstack)-1))
     elif instgtype == "mapkey":
         mapkey_format_flag = True
     elif instgtype == "string" or instgtype == "int32" or instgtype == "float" or instgtype == "byte":
-        match formatstack[0].type:
-            case "list":
-                formatstack[0].size -= 1
-            case "map":
-                formatstack[0].size -= 1
+#         match formatstack[0].type:
+#             case "list":
+#                 formatstack[0].size -= 1
+#             case "map":
+#                 formatstack[0].size -= 1
+        if len(formatstack) > 0:
+            formatstack[0].size -= 1
+        if mapkey_format_flag:
+            result = "%s" % (base)
+        else:
+            result = "%s" % (tabbedbase)
     else:
         pass
     return result
@@ -109,6 +124,7 @@ def convert(filename, outfilename):
     global map_key_flag
     global mapkey_format_flag
     global mapkey_type_store
+    global mapkey_tabs_store
     
     i = 16
     #for i in range(16, fba_len):    # ignoring header by starting i at 16
@@ -224,8 +240,7 @@ def convert(filename, outfilename):
         # STRING
         if string_flag and comp == 4 + string_len:
             str_type_base = "String (length=%d, value=%s)" % (string_len, string_literal)
-            type = str_type_base
-            formattype("", "string", 0)
+            type = formattype(str_type_base, "string", 0)
             should_print = True
         if string_flag and comp == 0:
             string_len = 0
@@ -235,8 +250,7 @@ def convert(filename, outfilename):
         # INT32
         if int32_flag and comp == 4:
             int32_type_base = "int32 (value=%d)" % (int32_literal)
-            type = int32_type_base
-            formattype("", "int32", 0)
+            type = formattype(int32_type_base, "int32", 0)
             should_print = True
         if int32_flag and comp == 0:
             type = "int32 end"
@@ -246,8 +260,7 @@ def convert(filename, outfilename):
         # FLOAT
         if float_flag and comp == 4:
             float_type_base = "float (value=%f)" % (float_literal)
-            type = float_type_base
-            formattype("", "float", 0)
+            type = formattype(float_type_base, "float", 0)
             should_print = True
         if float_flag and comp == 0:
             float_literal = 0.0
@@ -256,8 +269,7 @@ def convert(filename, outfilename):
         # BYTE
         if byte_flag and comp == 2:
             byte_type_base = "Byte (value=%d)" % (byte_literal)
-            type = byte_type_base
-            formattype("", "byte", 0)
+            type = formattype(byte_type_base, "byte", 0)
             should_print = True
         if byte_flag and comp == 1:
             type = "Byte end"
@@ -300,9 +312,10 @@ def convert(filename, outfilename):
             if mapkey_format_flag and mapkey_type_store == "":
                 mapkey_type_store = type
             elif mapkey_format_flag and mapkey_type_store != "":
-                outputfile.write("%s: %s\n" % (mapkey_type_store, type))
+                outputfile.write("%s%s: %s\n" % (mapkey_tabs_store, mapkey_type_store, type))
                 mapkey_format_flag = False
                 mapkey_type_store = ""
+                mapkey_tabs_store = ""
             else:
                 outputfile.write("%s\n" % (type))
             
