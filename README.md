@@ -44,5 +44,4 @@ This is a tool for converting PSLB files into human readable json files. PSLB fi
 Command line usage:
 `python pslb.py [inputfile] [outputfile]`
 
-Documentation of the PSLB format: [https://www.3dbrew.org/wiki/PSLB][]
-[https://www.3dbrew.org/wiki/PSLB]: https://www.3dbrew.org/wiki/PSLB
+Documentation of the PSLB format: https://www.3dbrew.org/wiki/PSLB

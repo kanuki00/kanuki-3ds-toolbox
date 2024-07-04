@@ -97,10 +97,13 @@ def formattype(base, instgtype, instgsize, verbosedebug):
     elif instgtype == "string" or instgtype == "int32" or instgtype == "float" or instgtype == "byte":
         if len(formatstack) > 0:
             formatstack[0].size -= 1
+        comma = ""
+        if formatstack[0].size > 0:
+            comma = ","
         if mapkey_format_flag:
-            result = "%s," % (base)
+            result = "%s%s" % (base, comma)
         else:
-            result = "%s," % (tabbedbase)
+            result = "%s%s" % (tabbedbase, comma)
     else:
         pass
     return result
@@ -126,17 +129,31 @@ def convert(filename, outfilename, verbosedebug):
     global mapkey_tabs_store
     
     i = 16
-    #for i in range(16, fba_len):    # ignoring header by starting i at 16
     while i < fba_len:
+        # this is absolutely horrid, but it works ~start
         if len(formatstack) > 0:
+            t = "%s" % (tabstring(len(formatstack)-1))
             if formatstack[0].size <= 0:
-                if formatstack[0].type == "map":
-                    outputfile.write("%s},\n" % (tabstring(len(formatstack)-1)))
+                if len(formatstack) > 1:
+                    if formatstack[1].size <= 0:
+                        if formatstack[0].type == "map":
+                            outputfile.write(t+"}\n")
+                        else:
+                            outputfile.write(t+"]\n")
+                    else:
+                        if formatstack[0].type == "map":
+                            outputfile.write(t+"},\n")
+                        else:
+                            outputfile.write(t+"],\n")
                 else:
-                    outputfile.write("%s],\n" % (tabstring(len(formatstack)-1)))
+                    if formatstack[0].type == "map":
+                        outputfile.write(t+"}\n")
+                    else:
+                        outputfile.write(t+"],\n")
                 del formatstack[0]
                 continue
-
+        # this is absolutely horrid, but it works ~end
+        
         byte = fba[i].to_bytes(1)
         
         if comp > 0:
