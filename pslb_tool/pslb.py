@@ -1,30 +1,13 @@
 import sys
 import struct
 
-##################
+##################################
+### Global variables and flags ###
+##################################
 printbytes = []
 my_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_@'
 for c in my_chars:
     printbytes.append(c.encode('utf-8'))
-##################
-'''
-The string type is a combination of an uint32 for the length of 
-the string followed by the characters of the string.
-
-For the Map and List after the type a uint32 follows that 
-represents the number of entries in the Map/List.
-
-The keys of the Map are always strings but the values can have 
-any type of the table 
-
-0x01 = String
-0x02 = int32
-0x03 = float (4 byte)
-0x04 = Byte
-0x05 = Map
-0x06 = List
-'''
-##################
 
 comp = 0            # comp = compose
 string_flag = False
@@ -44,7 +27,18 @@ list_entriescount = 0
 map_key_flag = False
 map_key_string_len = 0
 map_key_string_literal = ""
-     
+
+class fo:
+    def __init__(self, type, size):
+        self.type = type
+        self.size = size
+formatstack = []
+mapkey_format_flag = False
+mapkey_type_store = ""
+
+########################
+### Helper functions ###
+########################
 def iflb(bytes, little_endian): # iflb = int from loose bytes
     intarr = []
     for byte in bytes:
@@ -66,7 +60,40 @@ def tabstring(count):
     for i in range(count):
         result+="\t"
     return result
+    
+def formattype(base, instgtype, instgsize):
+    
+    global mapkey_format_flag
+    global formatstack
+    #tabbedbase = "%s%s" % (tabstring(len(formatstack)), base)
+    result = ""
+    if instgtype == "map":
+        if len(formatstack) > 0:
+            formatstack[0].size -= 1
+        formatstack.insert(0, fo("map", instgsize))
+        #result = "%s\n%s{" % (tabbedbase, tabstring(len(formatstack)))
+        result = "%s\n{" % (base)
+    elif instgtype == "list":
+        if len(formatstack) > 0:
+            formatstack[0].size -= 1
+        formatstack.insert(0, fo("list", instgsize))
+        #result = "%s\n%s[" % (tabbedbase, tabstring(len(formatstack)))
+        result = "%s\n[" % (base)
+    elif instgtype == "mapkey":
+        mapkey_format_flag = True
+    elif instgtype == "string" or instgtype == "int32" or instgtype == "float" or instgtype == "byte":
+        match formatstack[0].type:
+            case "list":
+                formatstack[0].size -= 1
+            case "map":
+                formatstack[0].size -= 1
+    else:
+        pass
+    return result
 
+########################
+### Convert function ###
+########################
 def convert(filename, outfilename):
     file = open(filename, "rb")
     fba = bytearray(file.read())    # file byte array
@@ -80,14 +107,29 @@ def convert(filename, outfilename):
     global byte_flag
     global list_flag
     global map_key_flag
+    global mapkey_format_flag
+    global mapkey_type_store
     
-    for i in range(16, fba_len):    # ignoring header by starting i at 16
+    i = 16
+    #for i in range(16, fba_len):    # ignoring header by starting i at 16
+    while i < fba_len:
+        if len(formatstack) > 0:
+            if formatstack[0].size <= 0:
+                if formatstack[0].type == "map":
+                    outputfile.write("%s}\n" % (tabstring(len(formatstack)-1)))
+                else:
+                    outputfile.write("%s]\n" % (tabstring(len(formatstack)-1)))
+                del formatstack[0]
+                continue
+
         byte = fba[i].to_bytes(1)
         
         if comp > 0:
             comp -= 1
             
+        #####################  
         ### Checking byte ###
+        #####################
         # MapKey
         if byte not in printbytes and comp == 0:
             stage1 = True                                   ### STAGE 1
@@ -173,24 +215,28 @@ def convert(filename, outfilename):
             list_flag = True
             list_entriescount = int32get(fba, i)
             comp = 4
-
+        ################
         ### Printing ###
+        ################
         type = ""
         should_print = False
         
         # STRING
         if string_flag and comp == 4 + string_len:
-            type = "String (length=%d, value=%s)" % (string_len, string_literal)
+            str_type_base = "String (length=%d, value=%s)" % (string_len, string_literal)
+            type = str_type_base
+            formattype("", "string", 0)
             should_print = True
         if string_flag and comp == 0:
-            type = "String end"
             string_len = 0
             string_literal = ""
             string_flag = False
             should_print = False
         # INT32
         if int32_flag and comp == 4:
-            type = "int32 (value=%d)" % (int32_literal)
+            int32_type_base = "int32 (value=%d)" % (int32_literal)
+            type = int32_type_base
+            formattype("", "int32", 0)
             should_print = True
         if int32_flag and comp == 0:
             type = "int32 end"
@@ -199,7 +245,9 @@ def convert(filename, outfilename):
             should_print = False
         # FLOAT
         if float_flag and comp == 4:
-            type = "float (value=%f)" % (float_literal)
+            float_type_base = "float (value=%f)" % (float_literal)
+            type = float_type_base
+            formattype("", "float", 0)
             should_print = True
         if float_flag and comp == 0:
             float_literal = 0.0
@@ -207,7 +255,9 @@ def convert(filename, outfilename):
             should_print = False
         # BYTE
         if byte_flag and comp == 2:
-            type = "Byte (value=%d)" % (byte_literal)
+            byte_type_base = "Byte (value=%d)" % (byte_literal)
+            type = byte_type_base
+            formattype("", "byte", 0)
             should_print = True
         if byte_flag and comp == 1:
             type = "Byte end"
@@ -216,7 +266,8 @@ def convert(filename, outfilename):
             should_print = False
         # MAP
         if map_flag and comp == 4:
-            type = "Map (keys=%d)" % (map_keycount)
+            map_type_base = "Map (keys=%d)" % (map_keycount)
+            type = formattype(map_type_base, "map", map_keycount)
             should_print = True
         if map_flag and comp == 0:
             type = "Map end"
@@ -225,7 +276,8 @@ def convert(filename, outfilename):
             should_print = False
         # LIST            
         if list_flag and comp == 4:
-            type = "List (entries=%d)" % (list_entriescount)
+            list_type_base = "List (entries=%d)" % (list_entriescount)
+            type = formattype(list_type_base, "list", list_entriescount)
             should_print = True
         if list_flag and comp == 0:
             type = "List end"
@@ -235,6 +287,7 @@ def convert(filename, outfilename):
         # MAPKEY
         if map_key_flag and comp == 3 + map_key_string_len:
             type = "MapKey (string_length=%d, string_value=%s)" % (map_key_string_len, map_key_string_literal)
+            formattype("", "mapkey", 0)
             should_print = True
         if map_key_flag and comp == 0:
             type = "MapKey end"
@@ -242,10 +295,24 @@ def convert(filename, outfilename):
             map_key_string_literal = ""
             map_key_flag = False
             should_print = False
+       
+        if should_print:
+            if mapkey_format_flag and mapkey_type_store == "":
+                mapkey_type_store = type
+            elif mapkey_format_flag and mapkey_type_store != "":
+                outputfile.write("%s: %s\n" % (mapkey_type_store, type))
+                mapkey_format_flag = False
+                mapkey_type_store = ""
+            else:
+                outputfile.write("%s\n" % (type))
             
-        if should_print:    
-            #print("0x%s %s" % (byte.hex(), type))
-            outputfile.write("%s\n" % (type))
+        i += 1
+    if i == fba_len and len(formatstack) > 0:
+        for f in formatstack:
+            if f.type == "map":
+                outputfile.write("}\n")
+            else:
+                outputfile.write("]\n")
 
 def main():
     args = sys.argv[1:]
