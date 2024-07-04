@@ -5,9 +5,9 @@ import struct
 ### Global variables and flags ###
 ##################################
 printbytes = []
-my_chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_@'
+my_chars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_@"
 for c in my_chars:
-    printbytes.append(c.encode('utf-8'))
+    printbytes.append(c.encode("utf-8"))
 
 comp = 0            # comp = compose
 string_flag = False
@@ -188,26 +188,26 @@ def convert(filename, outfilename, verbosedebug):
                         if testbyte not in printbytes:
                             stage3 = False
                         else:
-                            pstr+=testbyte.decode('utf-8')
+                            pstr+=testbyte.decode("utf-8")
                     if stage3:
                         map_key_flag = True                 ### GOAL
                         map_key_string_len = pstrlen
                         map_key_string_literal = pstr
                         comp = 3 + map_key_string_len
         # String
-        if byte == b'\x01' and comp == 0:
+        if byte == b"\x01" and comp == 0:
             string_flag = True
             string_len = int32get(fba, i)
             string_literal = ""
             for j in range(string_len):
                 decodebyte = fba[i+5+j].to_bytes(1)
                 try:
-                    string_literal+=decodebyte.decode('utf-8')
+                    string_literal+=decodebyte.decode("utf-8")
                 except UnicodeError:
-                    string_literal+='?'
+                    string_literal+="?"
             comp = 4 + string_len
         # Int32
-        if byte == b'\x02' and comp == 0 and not map_key_flag:
+        if byte == b"\x02" and comp == 0 and not map_key_flag:
             int32_flag = True
             stage1 = True
             if i+4 >= fba_len:
@@ -216,7 +216,7 @@ def convert(filename, outfilename, verbosedebug):
                 int32_literal = int32get(fba, i)
             comp = 4
         # Float
-        if byte == b'\x03' and comp == 0 and not map_key_flag:
+        if byte == b"\x03" and comp == 0 and not map_key_flag:
             float_flag = True
             stage1 = True
             if i+4 >= fba_len:
@@ -229,22 +229,22 @@ def convert(filename, outfilename, verbosedebug):
                 intarr.append(int.from_bytes(fba[i+4].to_bytes(1)))
                 intarr.reverse() # reverse because we want little endian
                 floathex = bytearray(intarr).hex()
-                float_literal = struct.unpack('!f', bytes.fromhex(floathex))[0]
+                float_literal = struct.unpack("!f", bytes.fromhex(floathex))[0]
             comp = 4
         # Byte
-        if byte == b'\x04' and comp == 0 and not map_key_flag:
+        if byte == b"\x04" and comp == 0 and not map_key_flag:
             byte_flag = True
             nextbyte = fba[i+1].to_bytes(1)
             byte_literal = int.from_bytes(nextbyte)
             byte_literal_hex = "0x"+nextbyte.hex()
             comp = 2
         # Map
-        if byte == b'\x05' and comp == 0 and not map_key_flag:
+        if byte == b"\x05" and comp == 0 and not map_key_flag:
             map_flag = True
             map_keycount = int32get(fba, i)
             comp = 4
         # List
-        if byte == b'\x06' and comp == 0 and not map_key_flag:
+        if byte == b"\x06" and comp == 0 and not map_key_flag:
             list_flag = True
             list_entriescount = int32get(fba, i)
             comp = 4
@@ -260,7 +260,7 @@ def convert(filename, outfilename, verbosedebug):
             if verbosedebug:
                 str_type_base = "String (length=%d, value=%s)" % (string_len, string_literal)
             else:
-                str_type_base = "'%s'" % (string_literal)
+                str_type_base = "\"%s\"" % (string_literal)
             type = formattype(str_type_base, "string", 0, verbosedebug)
             should_print = True
         if string_flag and comp == 0:
@@ -341,7 +341,7 @@ def convert(filename, outfilename, verbosedebug):
             if verbosedebug:
                 type = "MapKey (string_length=%d, string_value=%s)" % (map_key_string_len, map_key_string_literal)
             else:
-                type = "'%s'" % (map_key_string_literal)
+                type = "\"%s\"" % (map_key_string_literal)
             formattype("", "mapkey", 0, verbosedebug)
             should_print = True
         if map_key_flag and comp == 0:
