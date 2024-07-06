@@ -136,10 +136,10 @@ def from_bytes (data, endianess='big'):
     for offset, byte in enumerate(data):
         num += byte << (offset * 8)
     return num
-def to_bytes(n, length, endianess='big'):
-    h = '%x' % n
-    s = ('0'*(len(h) % 2) + h).zfill(length*2).decode('hex')
-    return s if endianess == 'big' else s[::-1]
+# def to_bytes(n, length, endianess='big'):
+#     h = '%x' % n
+#     s = ('0'*(len(h) % 2) + h).zfill(length*2).decode('hex')
+#     return s if endianess == 'big' else s[::-1]
 
 def scramblekey(keyX, keyY):
     rol = lambda val, r_bits, max_bits: \
@@ -155,7 +155,7 @@ def getNcchAesCounter(header, type): #Function based on code from ctrtool's sour
     counter = bytearray(b'\x00' * 16)
     if header.formatVersion == 2 or header.formatVersion == 0:
         counter[:8] = bytearray(header.titleId[::-1])
-        counter[8:9] = chr(type)
+        counter[8:9] = type.to_bytes(1)
     elif header.formatVersion == 1:
         x = 0
         if type == ncchSection.exheader:
@@ -316,7 +316,11 @@ def parseNCCH(fh, fsize, offs=0, idx=0, titleId='', standAlone=1, fromNcsd=0):
     with open(base, 'wb') as f:
         fh.seek(offs)
         tmp = fh.read(0x200)
-        tmp = tmp[:0x188+7] + chr((ord(tmp[0x188+7])&0x2)|0x4) + tmp[0x188+7+1:] #Set NCCH flag[7] to show that it is unencrypted
+        imp = 0x188+0x7 # index of encryption flag?
+        a = tmp[:imp]
+        b = (tmp[imp]&0x2|0x4).to_bytes(1)
+        c = tmp[imp+0x1:]
+        tmp = a+b+c #Set NCCH flag[7] to show that it is unencrypted
         f.write(tmp)
         
         if header.exhdrSize != 0:
@@ -354,7 +358,8 @@ def dumpSection(f, fh, offset, size, type, ctr, usesExtraCrypto, fixedCrypto, en
             f.write(fh.read(sizeleft))
         return
     
-    key0x2C = to_bytes(scramblekey(keys[0][0], keyYs[0]), 16, "big")
+    #key0x2C = to_bytes(scramblekey(keys[0][0], keyYs[0]), 16, "big")
+    key0x2C = scramblekey(keys[0][0], keyYs[0]).to_bytes(16, "big")
     
     if type == ncchSection.exheader:
         key = key0x2C
@@ -381,7 +386,8 @@ def dumpSection(f, fh, offset, size, type, ctr, usesExtraCrypto, fixedCrypto, en
         f.write(exetmp)
     
     if type == ncchSection.romfs:
-        key = to_bytes(scramblekey(keys[0][cryptoKeys[usesExtraCrypto]], keyYs[1]), 16, "big")
+        #key = to_bytes(scramblekey(keys[0][cryptoKeys[usesExtraCrypto]], keyYs[1]), 16, "big")
+        key = scramblekey(keys[0][cryptoKeys[usesExtraCrypto]], keyYs[1]).to_bytes(16, "big")
         if fixedCrypto:
             key = to_bytes(keys[1][fixedCrypto-1], 16, "big")
         cipher = AES.new(key, AES.MODE_CTR, counter=Counter.new(128, initial_value=from_bytes(ctr, "big")))
@@ -431,4 +437,4 @@ if __name__ == "__main__":
                     print('')
     
     print('Done!')
-    raw_input('')
+#    raw_input('')
