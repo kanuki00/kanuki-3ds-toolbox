@@ -1,3 +1,11 @@
+Kanuki's 3DS modding toolbox
+=
+
+This repository is my collection of 3ds modding tools.
+Other absolutely essential repositories: 
+* ctrtool: https://github.com/3DSGuy/Project_CTR
+* make_elf: https://github.com/NWPlayer123/ctr-elf2
+
 Nintendo LZ compression
 =======================
 
@@ -40,8 +48,18 @@ The utils.* and types.h files are from ctrtool.
 
 PSLB Tool
 =========
-This is a tool for converting PSLB files into human readable json files. PSLB files often show up in games like "Kid Icarus: Uprising" with the extention .json, even though they are not actual json files.
+This is a tool for converting PSLB files into human readable json files. PSLB files often show up in games like "Kid Icarus: Uprising" with the extention .json, even though they are not actual json files. \
 Command line usage:
 `python pslb.py [inputfile] [outputfile]`
 
 Documentation of the PSLB format: https://www.3dbrew.org/wiki/PSLB
+
+Decrypt Tool
+=
+A tool for decrypting 3ds roms. Used for producing .ncch files that contain a game's exheader, exefs and romfs \
+Tool made by 54634564. \
+Modified to work with python 3 by me (kanuki00). \
+Usage: \
+`sh setup-venv.sh` to set up a virtual python environment and install pycryptodome \
+`source virtual-environment/bin/activate` to activate the environment \
+`python decrypt.py Your_Rom.3ds` to decrypt you rom.
