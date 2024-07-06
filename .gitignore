@@ -4,3 +4,5 @@
 *.json
 *.txt
 .idea/
+*/virtual-environment/
+*.3ds

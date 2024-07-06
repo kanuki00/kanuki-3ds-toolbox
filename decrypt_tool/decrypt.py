@@ -165,7 +165,7 @@ def getNcchAesCounter(header, type): #Function based on code from ctrtool's sour
         if type == ncchSection.romfs:
             x = header.romfsOffset * mediaUnitSize
         counter[:8] = bytearray(header.titleId)
-        for i in xrange(4):
+        for i in range(4):
             counter[12+i] = chr((x>>((3-i)*8)) & 0xFF)
     
     return bytes(counter)
@@ -182,9 +182,9 @@ def getNewkeyY(keyY,header,titleId):
                 seeds[key] = bytearray(seeddb.read(16))
                 seeddb.read(8)
     if not titleId in seeds:
-        print tab + "********************************"
-        print tab + "Couldn't find seed in seeddb, checking online..."
-        print tab + "********************************"
+        print(tab + "********************************")
+        print(tab + "Couldn't find seed in seeddb, checking online...")
+        print(tab + "********************************")
         for country in ['JP', 'US', 'GB', 'KR', 'TW', 'AU', 'NZ']:
             r = urllib.urlopen("https://kagiya-ctr.cdn.nintendo.net/title/0x%s/ext_key?country=%s" % (titleId, country), context=context)
             if r.getcode() == 200:
@@ -204,7 +204,7 @@ def align(x,y):
     mask = ~(y-1)
     return (x+(y-1))&mask
 def parseCIA(fh):
-    print 'Parsing CIA in file "%s":' % os.path.basename(fh.name)
+    print('Parsing CIA in file "%s":' % os.path.basename(fh.name))
     
     fh.seek(0)
     headerSize,type,version,cachainSize,tikSize,tmdSize,metaSize,contentSize=struct.unpack("<IHHIIIIQ",fh.read(0x20))
@@ -219,7 +219,7 @@ def parseCIA(fh):
     fh.seek(tikOff+0x9C+0x140)
     tid = fh.read(8)
     if hexlify(tid)[:5] == '00048':
-        print 'Unsupported CIA file'
+        print('Unsupported CIA file')
         return
     fh.seek(tikOff+0xB1+0x140)
     cmnkeyidx = struct.unpack('B', fh.read(1))[0]
@@ -229,7 +229,7 @@ def parseCIA(fh):
     fh.seek(tmdOff+0x206)
     contentCount = struct.unpack('>H', fh.read(2))[0]
     nextContentOffs = 0
-    for i in xrange(contentCount):
+    for i in range(contentCount):
         fh.seek(tmdOff+0xB04+(0x30*i))
         cId, cIdx, cType, cSize = struct.unpack(">IHHQ", fh.read(16))
         cEnc = 1
@@ -242,7 +242,7 @@ def parseCIA(fh):
         else:
             test = fh.read(0x200)
         if not test[0x100:0x104] == b'NCCH':
-            print '  Problem parsing CIA content, skipping. Sorry about that :/\n'
+            print('  Problem parsing CIA content, skipping. Sorry about that :/\n')
             continue
         
         fh.seek(contentOffs+nextContentOffs)
@@ -252,24 +252,24 @@ def parseCIA(fh):
         parseNCCH(ciaHandle, cSize, 0, cIdx, tid, 0, 0)
 
 def parseNCSD(fh):
-    print 'Parsing NCSD in file "%s":' % os.path.basename(fh.name)
+    print('Parsing NCSD in file "%s":' % os.path.basename(fh.name))
     
     fh.seek(0)
     header = ncsdHdr()
     fh.readinto(header) #Reads header into structure
     
-    for i in xrange(len(header.offset_sizeTable)):
+    for i in range(len(header.offset_sizeTable)):
         if header.offset_sizeTable[i].offset:
             parseNCCH(fh, header.offset_sizeTable[i].size * mediaUnitSize, header.offset_sizeTable[i].offset * mediaUnitSize, i, reverseCtypeArray(header.titleId), 0, 1)
 
 def parseNCCH(fh, fsize, offs=0, idx=0, titleId='', standAlone=1, fromNcsd=0):
     tab = '    ' if not standAlone else '  '
     if not standAlone and fromNcsd:
-        print '  Parsing %s NCCH' % ncsdPartitions[idx]
+        print('  Parsing %s NCCH' % ncsdPartitions[idx])
     elif not standAlone:
-        print '  Parsing NCCH %d' % idx
+        print('  Parsing NCCH %d' % idx)
     else:
-        print 'Parsing NCCH in file "%s":' % os.path.basename(fh.name)
+        print('Parsing NCCH in file "%s":' % os.path.basename(fh.name))
     entries = 0
     data = ''
     
@@ -282,32 +282,32 @@ def parseNCCH(fh, fsize, offs=0, idx=0, titleId='', standAlone=1, fromNcsd=0):
     
     ncchKeyY = from_bytes(header.signature[:16], "big")
     
-    print tab + 'Product code: ' + str(bytearray(header.productCode)).rstrip('\x00')
-    print tab + 'KeyY: %032X' % ncchKeyY
-    print tab + 'Title ID: %s' % reverseCtypeArray(header.titleId)
-    print tab + 'Format version: %d' % header.formatVersion
+    print(tab + 'Product code: ' + str(bytearray(header.productCode)).rstrip('\x00'))
+    print(tab + 'KeyY: %032X' % ncchKeyY)
+    print(tab + 'Title ID: %s' % reverseCtypeArray(header.titleId))
+    print(tab + 'Format version: %d' % header.formatVersion)
     
     usesExtraCrypto = bytearray(header.flags)[3]
     if usesExtraCrypto:
-        print tab + 'Uses Extra NCCH crypto, keyslot 0x%X' % ({0x1: 0x25, 0xA: 0x18, 0xB: 0x1B}[usesExtraCrypto])
+        print(tab + 'Uses Extra NCCH crypto, keyslot 0x%X' % ({0x1: 0x25, 0xA: 0x18, 0xB: 0x1B}[usesExtraCrypto]))
     
     fixedCrypto = 0
     encrypted = 1
     if (header.flags[7] & 0x1):
         fixedCrypto = 2 if (header.titleId[3] & 0x10) else 1
-        print tab + 'Uses fixed-key crypto'
+        print(tab + 'Uses fixed-key crypto')
     if (header.flags[7] & 0x4):
         encrypted = 0
-        print tab + 'Not Encrypted'
+        print(tab + 'Not Encrypted')
     
     useSeedCrypto = (header.flags[7] & 0x20) != 0
     
     keyY = ncchKeyY
     if useSeedCrypto:
         keyY = getNewkeyY(ncchKeyY, header, hexlify(titleId))
-        print tab + 'Uses 9.6 NCCH Seed crypto with KeyY: %032X' % keyY
+        print(tab + 'Uses 9.6 NCCH Seed crypto with KeyY: %032X' % keyY)
     
-    print ''
+    print('')
     
     base = os.path.splitext(os.path.basename(fh.name))[0]
     base += '.%s.ncch' % (idx if (fromNcsd == 0) else ncsdPartitions[idx])
@@ -331,15 +331,15 @@ def parseNCCH(fh, fsize, offs=0, idx=0, titleId='', standAlone=1, fromNcsd=0):
             counter = getNcchAesCounter(header, ncchSection.romfs)
             dumpSection(f, fh, header.romfsOffset * mediaUnitSize, header.romfsSize * mediaUnitSize, ncchSection.romfs, counter, usesExtraCrypto, fixedCrypto, encrypted, [ncchKeyY, keyY])
     
-    print ''
+    print('')
 
 def dumpSection(f, fh, offset, size, type, ctr, usesExtraCrypto, fixedCrypto, encrypted, keyYs):
     cryptoKeys = {0x0: 0, 0x1 : 1, 0xA: 2, 0xB: 3}
     sections = ['ExHeader', 'ExeFS', 'RomFS']
     
-    print tab + '%s offset:  %08X' % (sections[type-1], offset)
-    print tab + '%s counter: %s' % (sections[type-1], hexlify(ctr))
-    print tab + '%s size: %d bytes' % (sections[type-1], size)
+    print(tab + '%s offset:  %08X' % (sections[type-1], offset))
+    print(tab + '%s counter: %s' % (sections[type-1], hexlify(ctr)))
+    print(tab + '%s size: %d bytes' % (sections[type-1], size))
     
     tmp = offset - f.tell()
     if tmp > 0:
@@ -373,7 +373,7 @@ def dumpSection(f, fh, offset, size, type, ctr, usesExtraCrypto, fixedCrypto, en
         if usesExtraCrypto:
             extraCipher = AES.new(to_bytes(scramblekey(keys[0][cryptoKeys[usesExtraCrypto]], keyYs[1]), 16, "big"), AES.MODE_CTR, counter=Counter.new(128, initial_value=from_bytes(ctr, "big")))
             exetmp2 = extraCipher.decrypt(exedata)
-            for i in xrange(10):
+            for i in range(10):
                 fname,off,size=struct.unpack("<8sII",exetmp[i*0x10:(i+1)*0x10])
                 off += 0x200
                 if fname.strip('\x00') not in ['icon', 'banner']:
@@ -394,24 +394,24 @@ def dumpSection(f, fh, offset, size, type, ctr, usesExtraCrypto, fixedCrypto, en
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print 'usage: decrypt.py *file*'
+        print('usage: decrypt.py *file*')
         sys.exit()
     
     inpFiles = []
     existFiles = []
     
-    for i in xrange(len(sys.argv)-1):
+    for i in range(len(sys.argv)-1):
         inpFiles = inpFiles + glob.glob(sys.argv[i+1].replace('[','[[]')) #Needed for wildcard support on Windows
     
-    for i in xrange(len(inpFiles)):
+    for i in range(len(inpFiles)):
         if os.path.isfile(inpFiles[i]):
             existFiles.append(inpFiles[i])
     
     if existFiles == []:
-        print "Input files don't exist"
+        print("Input files don't exist")
         sys.exit()
     
-    print ''
+    print('')
     
     for file in existFiles:
         with open(file,'rb') as fh:
@@ -419,16 +419,16 @@ if __name__ == "__main__":
             magic = fh.read(4)
             if magic == b'NCSD':
                 result = parseNCSD(fh)
-                print ''
+                print('')
             elif magic == b'NCCH':
                 fh.seek(0, 2)
                 result = parseNCCH(fh, fh.tell())
-                print ''
+                print('')
             elif (fh.name.split('.')[-1].lower() == 'cia'):
                 fh.seek(0)
                 if fh.read(4) == b'\x20\x20\x00\x00':
                     parseCIA(fh)
-                    print ''
+                    print('')
     
-    print 'Done!'
+    print('Done!')
     raw_input('')
