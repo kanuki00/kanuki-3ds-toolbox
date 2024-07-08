@@ -23,6 +23,7 @@ int32_literal = 0
 float_literal = 0.0
 byte_literal = 0
 byte_literal_hex = ""
+byte_literal_bool = ""
 map_keycount = 0
 list_entriescount = 0
 map_key_flag = False
@@ -63,7 +64,7 @@ def tabstring(count):
         result+="\t"
     return result
     
-def formattype(base, instgtype, instgsize, verbosedebug):
+def typeformat(base, instgtype, instgsize, verbosedebug):
     
     global mapkey_format_flag
     global mapkey_tabs_store
@@ -107,11 +108,68 @@ def formattype(base, instgtype, instgsize, verbosedebug):
     else:
         pass
     return result
+    
+def typebuild(type, length, literal, verbose, noformat):
+    type_base_string = ""
+    type_string = ""
+    s = ""
+    t = ()
+    if verbose:
+        match type:
+            case "string":
+                s = "String (length=%d, value=%s)"
+                t = (length, literal)
+            case "int32":
+                s = "Int32 (value=%d)"
+                t = (literal)
+            case "float":
+                s = "Float (value=%f)"
+                t = (literal)
+            case "byte":
+                s = "Byte (value=%s)"
+                t = (literal)
+            case "map":
+                s = "Map (keys=%d)"
+                t = (length)
+            case "list":
+                s = "List (entries=%d)"
+                t = (length)
+            case _:
+                s = "%s"
+                t = (literal)
+        type_base_string = s % t
+    else:
+        match type:
+            case "string":
+                s = "\"%s\""
+                t = (literal)
+            case "int32":
+                s = "%d"
+                t = (literal)
+            case "float":
+                s = "%f"
+                t = (literal)
+            case "byte":
+                s = "%s"
+                t = (literal)
+            case "map":
+                pass
+            case "list":
+                pass
+            case _:
+                s = "%s"
+                t = (literal)
+        type_base_string = s % t
+    if noformat:
+        type_string = type_base_string
+    else:
+        type_string = typeformat(type_base_string, type, length, verbose)
+    return type_string
 
 ########################
 ### Convert function ###
 ########################
-def convert(filename, outfilename, verbosedebug):
+def convert(filename, outfilename, verbosedebug, noformat):
     file = open(filename, "rb")
     fba = bytearray(file.read())    # file byte array
     fba_len = len(fba)              # file byte array length
@@ -131,7 +189,7 @@ def convert(filename, outfilename, verbosedebug):
     i = 16
     while i < fba_len:
         # this is absolutely horrid, but it works ~start
-        if len(formatstack) > 0:
+        if not noformat and len(formatstack) > 0:
             t = "%s" % (tabstring(len(formatstack)-1))
             if formatstack[0].size <= 0:
                 if len(formatstack) > 1:
@@ -193,7 +251,7 @@ def convert(filename, outfilename, verbosedebug):
                         map_key_flag = True                 ### GOAL
                         map_key_string_len = pstrlen
                         map_key_string_literal = pstr
-                        comp = 3 + map_key_string_len
+                        comp = 4 + map_key_string_len
         # String
         if byte == b"\x01" and comp == 0:
             string_flag = True
@@ -205,7 +263,7 @@ def convert(filename, outfilename, verbosedebug):
                     string_literal+=decodebyte.decode("utf-8")
                 except UnicodeError:
                     string_literal+="?"
-            comp = 4 + string_len
+            comp = 5 + string_len
         # Int32
         if byte == b"\x02" and comp == 0 and not map_key_flag:
             int32_flag = True
@@ -214,7 +272,7 @@ def convert(filename, outfilename, verbosedebug):
                 stage1 = False
             if stage1:
                 int32_literal = int32get(fba, i)
-            comp = 4
+            comp = 5
         # Float
         if byte == b"\x03" and comp == 0 and not map_key_flag:
             float_flag = True
@@ -230,24 +288,34 @@ def convert(filename, outfilename, verbosedebug):
                 intarr.reverse() # reverse because we want little endian
                 floathex = bytearray(intarr).hex()
                 float_literal = struct.unpack("!f", bytes.fromhex(floathex))[0]
-            comp = 4
+            comp = 5
         # Byte
         if byte == b"\x04" and comp == 0 and not map_key_flag:
             byte_flag = True
             nextbyte = fba[i+1].to_bytes(1)
             byte_literal = int.from_bytes(nextbyte)
             byte_literal_hex = "0x"+nextbyte.hex()
+            if byte_literal_hex == "0x00":
+                byte_literal_bool = "false"
+            elif byte_literal_hex == "0x01":
+                byte_literal_bool = "true"
+            else:
+                pass
             comp = 2
         # Map
         if byte == b"\x05" and comp == 0 and not map_key_flag:
             map_flag = True
             map_keycount = int32get(fba, i)
-            comp = 4
+            comp = 5
         # List
         if byte == b"\x06" and comp == 0 and not map_key_flag:
             list_flag = True
             list_entriescount = int32get(fba, i)
-            comp = 4
+            comp = 5
+        # Error
+        if comp == 0 and byte not in printbytes:
+            print("Error")
+        
         ################
         ### Printing ###
         ################
@@ -255,116 +323,98 @@ def convert(filename, outfilename, verbosedebug):
         should_print = False
         
         # STRING
-        if string_flag and comp == 4 + string_len:
-            str_type_base = ""
-            if verbosedebug:
-                str_type_base = "String (length=%d, value=%s)" % (string_len, string_literal)
-            else:
-                str_type_base = "\"%s\"" % (string_literal)
-            type = formattype(str_type_base, "string", 0, verbosedebug)
+        if string_flag and comp == 5 + string_len:
+            type = typebuild("string", string_len, string_literal, verbosedebug, noformat)
             should_print = True
-        if string_flag and comp == 0:
+        if string_flag and comp == 1:
             string_len = 0
             string_literal = ""
             string_flag = False
-            should_print = False
+            should_print = noformat
         # INT32
-        if int32_flag and comp == 4:
-            int32_type_base = ""
-            if verbosedebug:
-                int32_type_base = "int32 (value=%d)" % (int32_literal)
-            else:
-                int32_type_base = "%d" % (int32_literal)
-            type = formattype(int32_type_base, "int32", 0, verbosedebug)
+        if int32_flag and comp == 5:
+            type = typebuild("int32", 0, int32_literal, verbosedebug, noformat)
             should_print = True
-        if int32_flag and comp == 0:
+        if int32_flag and comp == 1:
             type = "int32 end"
             int32_literal = 0
             int32_flag = False
-            should_print = False
+            should_print = noformat
         # FLOAT
-        if float_flag and comp == 4:
-            float_type_base = ""
-            if verbosedebug:
-                float_type_base = "float (value=%f)" % (float_literal)
-            else:
-                float_type_base = "%ff" % (float_literal)
-            type = formattype(float_type_base, "float", 0, verbosedebug)
+        if float_flag and comp == 5:
+            type = typebuild("float", 0, float_literal, verbosedebug, noformat)
             should_print = True
-        if float_flag and comp == 0:
+        if float_flag and comp == 1:
             float_literal = 0.0
             float_flag = False
-            should_print = False
+            should_print = noformat
         # BYTE
         if byte_flag and comp == 2:
-            byte_type_base = ""
-            if verbosedebug:
-                byte_type_base = "Byte (value=%d)" % (byte_literal)
-            else:
-                byte_type_base = "%s" % (byte_literal_hex)
-            type = formattype(byte_type_base, "byte", 0, verbosedebug)
+            type = typebuild("byte", 0, byte_literal_bool, verbosedebug, noformat)
             should_print = True
         if byte_flag and comp == 1:
             type = "Byte end"
             byte_literal = 0
             byte_literal_hex = ""
+            byte_literal_bool = ""
             byte_flag = False
-            should_print = False
+            should_print = noformat
         # MAP
-        if map_flag and comp == 4:
-            if verbosedebug:
-                map_type_base = "Map (keys=%d)" % (map_keycount)
-                type = formattype(map_type_base, "map", map_keycount, verbosedebug)
-            else:
-                type = formattype("", "map", map_keycount, verbosedebug)
+        if map_flag and comp == 5:
+            type = typebuild("map", map_keycount, "", verbosedebug, noformat)
             should_print = True
-        if map_flag and comp == 0:
+        if map_flag and comp == 1:
             type = "Map end"
             map_keycount = 0
             map_flag = False
-            should_print = False
+            should_print = noformat
         # LIST            
-        if list_flag and comp == 4:
-            if verbosedebug:
-                list_type_base = "List (entries=%d)" % (list_entriescount)
-                type = formattype(list_type_base, "list", list_entriescount, verbosedebug)
-            else:
-                type = formattype("", "list", list_entriescount, verbosedebug)
+        if list_flag and comp == 5:
+            type = typebuild("list", list_entriescount, "", verbosedebug, noformat)
             should_print = True
-        if list_flag and comp == 0:
+        if list_flag and comp == 1:
             type = "List end"
             list_entriescount = 0
             list_flag = False
-            should_print = False
+            should_print = noformat
+            
         # MAPKEY
-        if map_key_flag and comp == 3 + map_key_string_len:
+        if map_key_flag and comp == 4 + map_key_string_len:
             if verbosedebug:
                 type = "MapKey (string_length=%d, string_value=%s)" % (map_key_string_len, map_key_string_literal)
             else:
                 type = "\"%s\"" % (map_key_string_literal)
-            formattype("", "mapkey", 0, verbosedebug)
+            typeformat("", "mapkey", 0, verbosedebug)
             should_print = True
-        if map_key_flag and comp == 0:
+        if map_key_flag and comp == 1:
             type = "MapKey end"
             map_key_string_len = 0
             map_key_string_literal = ""
             map_key_flag = False
-            should_print = False
+            should_print = noformat
        
-        if should_print:
-            if mapkey_format_flag and mapkey_type_store == "":
-                mapkey_type_store = type
-            elif mapkey_format_flag and mapkey_type_store != "":
-                outputfile.write("%s%s: %s\n" % (mapkey_tabs_store, mapkey_type_store, type))
-                mapkey_format_flag = False
-                mapkey_type_store = ""
-                mapkey_tabs_store = ""
+        if noformat:
+            if should_print:
+                outputfile.write("%d: 0x%s %s\n" % (comp, byte.hex(), type))
             else:
-                outputfile.write("%s\n" % (type))
+                outputfile.write("%d: 0x%s\n" % (comp, byte.hex()))
+        else:
+            if should_print:
+                if mapkey_format_flag and mapkey_type_store == "":
+                    mapkey_type_store = type
+                elif mapkey_format_flag and mapkey_type_store != "":
+                    outputfile.write("%s%s: %s\n" % (mapkey_tabs_store, mapkey_type_store, type))
+                    mapkey_format_flag = False
+                    mapkey_type_store = ""
+                    mapkey_tabs_store = ""
+                else:
+                    outputfile.write("%s\n" % (type))
             
         i += 1
+
     if i == fba_len and len(formatstack) > 0:
         for f in formatstack:
+            # TODO add tabs
             if f.type == "map":
                 outputfile.write("}\n")
             else:
@@ -373,9 +423,13 @@ def convert(filename, outfilename, verbosedebug):
 def main():
     args = sys.argv[1:]
     verbosedebug = False
+    noformat = False
     if "-vd" in args:
         verbosedebug = True
-    convert(args[0], args[1], verbosedebug)
+    if "-nf" in args:
+        noformat = True
+        
+    convert(args[0], args[1], verbosedebug, noformat)
     return 0
     
 if __name__ == "__main__":
