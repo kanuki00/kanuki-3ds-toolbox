@@ -1,23 +1,51 @@
 import sys
+color1 = "\033[93m"
 
 class header:
     magic = None
+    def print(self):
+        if self.magic != None:
+            print("Magic word = %s%s" % (color1, self.magic))
+    
+class cgfx_header(header):
     endian = None
     hsize = None
     rev = None
     fsize = None
-    sec_size = None
     num_entr = None
     def print(self):
-        print("magic word = %s" % self.magic)
-        print("file endian = %s" % self.endian)
-        print("header size = %d" % self.hsize)
-        print("revision = %d" % self.rev)
+        header.print(self)
+        if self.endian != None:
+            print("File endian = %s" % self.endian)
+        if self.hsize != None:
+            print("Header size = %d" % self.hsize)
+        if self.rev != None:
+            print("Revision = %d" % self.rev)
         if self.fsize != None:
-            print("file size = %d" % self.fsize)
-        if self.sec_size != None:
-            print("section size = %d" % self.sec_size)
-        print("entries = %d" % self.num_entr)
+            print("File size = %d bytes" % self.fsize)
+        if self.num_entr != None:
+            print("Number of entries = %d" % self.num_entr)
+        
+class data_header(header):
+    datasize = None
+    models_dict_num_entries = None
+    models_dict_reloff = None
+    textures_dict_num_entries = None
+    textures_dict_reloff = None
+    luts_dict_num_entries = None
+    luts_dict_reloff = None
+    
+    def print(self):
+        header.print(self)
+        if self.datasize != None:
+            print("DATA size = %d bytes" % self.datasize)
+        if self.models_dict_num_entries != None:
+            print("Models dictionary entries count = %d" % self.models_dict_num_entries)
+        if self.models_dict_reloff != None:
+            print("Models dictionary relative offset = 0x%s" % self.models_dict_reloff.to_bytes(4).hex())
+            
+class imag_header(header):
+    pass
 
 class section:
     offset = None
@@ -30,9 +58,11 @@ class section:
             return self.header.magic
     def get_entries(self):
         return self.entries
+    def print_offset(self):
+        print("Section offset = %s0x%s" % (color1, self.offset.to_bytes(4).hex()))
         
 # Main CGFX section
-cgfx = section(header())
+cgfx = section(cgfx_header())
 
 ####################
 def getbyte(arr, idx):
@@ -52,7 +82,7 @@ def ba2int(arr, endian):
     return int(bytearray(intarr).hex(), 16)
     
 ########################################################################################################################
-def get_cgfx_header(ba):
+def build_section_hierarchy(ba):
     global cgfx
     # building file's main header
     magic = ba[:4]
@@ -72,12 +102,46 @@ def get_cgfx_header(ba):
     cgfx.header.rev = ba2int(rev, "big")
     cgfx.header.fsize = ba2int(fsize, "little")
     cgfx.header.num_entr = ba2int(num_entr, "little")
-    cgfx.offset = 0x00
+    cgfx.offset = 0
     
     # getting main entries
+    prev_off = 0
     for e in range(cgfx.header.num_entr):
-        pass #TODO
-    
+        for i in range(prev_off+4, len(ba)):
+            b0 = ba[i].to_bytes(1)
+            b1 = ba[i+1].to_bytes(1)
+            b2 = ba[i+2].to_bytes(1)
+            b3 = ba[i+3].to_bytes(1)
+            try:
+                b0 = b0.decode("utf-8")
+                b1 = b1.decode("utf-8")
+                b2 = b2.decode("utf-8")
+                b3 = b3.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+            magic = b0+b1+b2+b3
+            if magic == "DATA" or magic == "IMAG":
+                # i is the sections offset
+                temphead = header()
+                if magic == "DATA":
+                    temphead = data_header()
+                    dsb = ba[i+4:i+8] # datasize bytes. at offset 0x4, length is 0x4
+                    temphead.datasize = ba2int(dsb, cgfx.header.endian)
+                    mdne = ba[i+8:i+12]
+                    mdro = ba[i+12:i+16]
+                    temphead.models_dict_num_entries = ba2int(mdne, cgfx.header.endian)
+                    temphead.models_dict_reloff = ba2int(mdro, cgfx.header.endian)
+                elif magic == "IMAG":
+                    temphead = imag_header()
+                temphead.magic = magic
+                
+                tempsec = section(temphead)
+                tempsec.offset = i
+                
+                cgfx.entries.append(tempsec)
+                prev_off = i
+                break
+
 def main():
     global cgfx
 
@@ -85,10 +149,15 @@ def main():
     if len(args) > 0:
         infile = open(args[0], "rb")
         fba = bytearray(infile.read()) # file byte array
-        get_cgfx_header(fba)
+        build_section_hierarchy(fba)
         
-        print(cgfx.get_type())
-        print(cgfx.get_entries())
+        cgfx.print_offset()
+        cgfx.header.print()
+        print("")
+        for sec in cgfx.entries:
+            sec.print_offset()
+            sec.header.print()
+            print("")
         
 if __name__ == "__main__":
     exit(main())
