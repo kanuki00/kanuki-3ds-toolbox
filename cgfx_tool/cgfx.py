@@ -1,27 +1,45 @@
 import sys
 
-class prop:
-    magic = "None"
-    endian = "None"
-    hsize = 0
-    rev = 0
-    fsize = 0
-    num_entr = 0
+class header:
+    magic = None
+    endian = None
+    hsize = None
+    rev = None
+    fsize = None
+    sec_size = None
+    num_entr = None
     def print(self):
         print("magic word = %s" % self.magic)
         print("file endian = %s" % self.endian)
         print("header size = %d" % self.hsize)
         print("revision = %d" % self.rev)
-        print("file size = %d" % self.fsize)
+        if self.fsize != None:
+            print("file size = %d" % self.fsize)
+        if self.sec_size != None:
+            print("section size = %d" % self.sec_size)
         print("entries = %d" % self.num_entr)
 
-cgfx_prop = prop()
+class section:
+    offset = None
+    header = None
+    entries = []
+    def __init__(self, h):
+        self.header = h
+    def get_type(self):
+        if self.header != None:
+            return self.header.magic
+    def get_entries(self):
+        return self.entries
+        
+# Main CGFX section
+cgfx = section(header())
+
 ####################
 def getbyte(arr, idx):
     integer = arr[idx]
     return integer.to_bytes(1)
     
-def a(arr, endian):
+def ba2int(arr, endian):
     intarr = []
     for i in range(len(arr)):
         intarr.append(arr[i])
@@ -32,10 +50,11 @@ def a(arr, endian):
     else:
         pass # error
     return int(bytearray(intarr).hex(), 16)
-###################
-def cgfx_header(ba):
-    global cgfx_prop
-
+    
+########################################################################################################################
+def get_cgfx_header(ba):
+    global cgfx
+    # building file's main header
     magic = ba[:4]
     endian = ba[4:6]
     hsize = ba[6:8]
@@ -43,26 +62,33 @@ def cgfx_header(ba):
     fsize = ba[12:16]
     num_entr = ba[16:20]
 
-    cgfx_prop.magic = magic.decode()
+    cgfx.header.magic = magic.decode()
     if endian[0] > endian[1]:
-        cgfx_prop.endian = "little"
+        cgfx.header.endian = "little"
     else:
-        cgfx_prop.endian = "big"
+        cgfx.header.endian = "big"
     
-    cgfx_prop.hsize = a(hsize, "little")
-    cgfx_prop.rev = a(rev, "big")
-    cgfx_prop.fsize = a(fsize, "little")
-    cgfx_prop.num_entr = a(num_entr, "little")
+    cgfx.header.hsize = ba2int(hsize, "little")
+    cgfx.header.rev = ba2int(rev, "big")
+    cgfx.header.fsize = ba2int(fsize, "little")
+    cgfx.header.num_entr = ba2int(num_entr, "little")
+    cgfx.offset = 0x00
+    
+    # getting main entries
+    for e in range(cgfx.header.num_entr):
+        pass #TODO
     
 def main():
-    global cgfx_prop
+    global cgfx
 
     args = sys.argv[1:]
     if len(args) > 0:
         infile = open(args[0], "rb")
-        fba = bytearray(infile.read())
-        cgfx_header(fba)
-        cgfx_prop.print()
+        fba = bytearray(infile.read()) # file byte array
+        get_cgfx_header(fba)
+        
+        print(cgfx.get_type())
+        print(cgfx.get_entries())
         
 if __name__ == "__main__":
     exit(main())
