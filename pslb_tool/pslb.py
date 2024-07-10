@@ -186,6 +186,16 @@ def convert(filename, outfilename, verbosedebug, noformat):
     global mapkey_type_store
     global mapkey_tabs_store
     
+    header = fba[:16]
+    magic = header[:4]
+    mystery1 = header[4:8]
+    mystery2 = header[8:12]
+    mystery3 = header[12:16]
+    print(magic)
+    print(mystery1)
+    print(mystery2)
+    print(mystery3)
+    
     i = 16
     while i < fba_len:
         # this is absolutely horrid, but it works ~start
