@@ -61,7 +61,20 @@ Usage: \
 `source virtual-environment/bin/activate` to activate the environment \
 `python decrypt.py Your_Rom.3ds` to decrypt you rom.
 
+## CGFX Tool
+
+Work in progress.
+
+## CTR ELF Tool
+
+NWPlayer123: *"Rewrote* [ctr-elf][] *because it messed up the .bss section and required external dependencies (arm-none-eabi from DevkitARM), only tested with Python 2.7.13 and Yo-kai Watch 3 Sukiyaki but it should work fine on any code.bin+exh.bin"*
+
+*"Also, you can just place it in the directory that ctrtool creates and run it which is a lot easier and faster than making a separate workdir folder."*
+
+*"Not sure what else to put in here, provided with no warranty or guarantee of operability, feel free to modify and redistribute."*
+
 [Project_CTR]: https://github.com/3DSGuy/Project_CTR
 [ctr_elf2]: https://github.com/NWPlayer123/ctr-elf2
 [LZSS]: http://en.wikipedia.org/wiki/Lempel%E2%80%93Ziv%E2%80%93Storer%E2%80%93Szymanski
 [Documentation of the PSLB format]: https://www.3dbrew.org/wiki/PSLB
+[ctr-elf]: https://github.com/archshift/ctr-elf
