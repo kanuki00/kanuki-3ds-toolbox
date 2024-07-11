@@ -1,5 +1,8 @@
 import sys
-color1 = "\033[93m"
+# ansi colors
+color1 = "\033[38;5;214m"
+color2 = "\033[38;5;123m"
+# \033[0m reset
 
 dicttypes = [
     "models", 
@@ -20,17 +23,28 @@ dicttypes = [
     "unknown"
 ]
 
-class datadict:
+class dictinfo:
     def __init__(self, t, ne, ro, e):
         self.type = t
         self.num_entries = ne
         self.relative_offset = ro
         self.end = e
     def print(self):
-        print("%s, entries: %d, relative offset: 0x%s, end: 0x%s" % (self.type, self.num_entries, self.relative_offset.to_bytes(4).hex(), self.end.to_bytes(4).hex()))
+        print("%s%s, \033[0mentries: %d, relative offset: %s0x%s\033[0m, end: 0x%s" % (color2, self.type, self.num_entries, color2, self.relative_offset.to_bytes(4).hex(), self.end.to_bytes(4).hex()))
+
+class cgfxdict:
+    def __init__(self):
+        self.magic = None
+        self.size = None
+        self.num_entries = None
+        self.myst1 = None
+        self.myst2 = None
+        self.myst3 = None
+        self.content = {}
 
 class header:
-    magic = None
+    def __init__(self):
+        self.magic = None
     def print(self):
         if self.magic != None:
             print("Magic word = %s%s" % (color1, self.magic))
@@ -56,14 +70,14 @@ class cgfx_header(header):
         
 class data_header(header):
     datasize = None
-    datadicts = []
+    dictinfos = []
     def print(self):
         header.print(self)
         if self.datasize != None:
             print("DATA size = %d bytes" % self.datasize)
-        if len(self.datadicts) > 0:
-            for dd in self.datadicts:
-                dd.print()
+        if len(self.dictinfos) > 0:
+            for di in self.dictinfos:
+                di.print()
             
 class imag_header(header):
     pass
@@ -81,7 +95,9 @@ class section:
         return self.entries
     def print_offset(self):
         print("Section offset = %s0x%s" % (color1, self.offset.to_bytes(4).hex()))
-        
+
+
+infile_name = ""        
 # Main CGFX section
 cgfx = section(cgfx_header())
 
@@ -101,6 +117,18 @@ def ba2int(arr, endian):
     else:
         pass # error
     return int(bytearray(intarr).hex(), 16)
+    
+def print_file_info():
+    global infile_name
+    print("File \"%s\"" % (infile_name))
+    print("")
+    cgfx.print_offset()
+    cgfx.header.print()
+    print("")
+    for entry in cgfx.entries:
+        entry.print_offset()
+        entry.header.print()
+        print("")
     
 ########################################################################################################################
 def build_section_hierarchy(ba):
@@ -156,37 +184,45 @@ def build_section_hierarchy(ba):
                         num_entries = ba2int(neb, cgfx.header.endian)
                         rob = ba[roffoff:roffoff+4]
                         relative_offset = ba2int(rob, cgfx.header.endian)
-                        temphead.datadicts.append(datadict(type, num_entries, relative_offset, roffoff+4))
+                        temphead.dictinfos.append(dictinfo(type, num_entries, relative_offset, roffoff+4))
 
                 elif magic == "IMAG":
                     temphead = imag_header()
+                    
                 temphead.magic = magic
                 
                 tempsec = section(temphead)
                 tempsec.offset = i
+                tempsec.entries = []
                 
                 cgfx.entries.append(tempsec)
                 prev_off = i
                 break
-
+    
+    # populating main entries
+    for e2 in cgfx.entries:
+        if e2.header.magic == "DATA":
+            for i in range(len(e2.header.dictinfos)):
+                di = e2.header.dictinfos[i]
+                tempcgfxdict = cgfxdict()
+                
+                
+                
+                e2.entries.append(tempcgfxdict)
+            #print(e2.header.magic)
+            #print(e2.get_entries())
+            
+        
 def main():
     global cgfx
-
+    global infile_name
     args = sys.argv[1:]
     if len(args) > 0:
-        infile = open(args[0], "rb")
+        infile_name = args[0]
+        infile = open(infile_name, "rb")
         fba = bytearray(infile.read()) # file byte array
         build_section_hierarchy(fba)
-        
-        print("File \"%s\"" % (args[0]))
-        print("")
-        cgfx.print_offset()
-        cgfx.header.print()
-        print("")
-        for sec in cgfx.entries:
-            sec.print_offset()
-            sec.header.print()
-            print("")
+        print_file_info()
         
 if __name__ == "__main__":
     exit(main())
