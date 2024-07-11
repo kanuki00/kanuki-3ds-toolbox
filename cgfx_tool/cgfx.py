@@ -1,6 +1,34 @@
 import sys
 color1 = "\033[93m"
 
+dicttypes = [
+    "models", 
+    "textures", 
+    "luts", 
+    "materials", 
+    "shaders", 
+    "cameras", 
+    "lights", 
+    "fog", 
+    "environments", 
+    "skeleton_animations", 
+    "texture_animations", 
+    "visibility_animations", 
+    "camera_animations", 
+    "light_animations", 
+    "emitters", 
+    "unknown"
+]
+
+class datadict:
+    def __init__(self, t, ne, ro, e):
+        self.type = t
+        self.num_entries = ne
+        self.relative_offset = ro
+        self.end = e
+    def print(self):
+        print("%s, entries: %d, relative offset: 0x%s, end: 0x%s" % (self.type, self.num_entries, self.relative_offset.to_bytes(4).hex(), self.end.to_bytes(4).hex()))
+
 class header:
     magic = None
     def print(self):
@@ -28,21 +56,14 @@ class cgfx_header(header):
         
 class data_header(header):
     datasize = None
-    models_dict_num_entries = None
-    models_dict_reloff = None
-    textures_dict_num_entries = None
-    textures_dict_reloff = None
-    luts_dict_num_entries = None
-    luts_dict_reloff = None
-    
+    datadicts = []
     def print(self):
         header.print(self)
         if self.datasize != None:
             print("DATA size = %d bytes" % self.datasize)
-        if self.models_dict_num_entries != None:
-            print("Models dictionary entries count = %d" % self.models_dict_num_entries)
-        if self.models_dict_reloff != None:
-            print("Models dictionary relative offset = 0x%s" % self.models_dict_reloff.to_bytes(4).hex())
+        if len(self.datadicts) > 0:
+            for dd in self.datadicts:
+                dd.print()
             
 class imag_header(header):
     pass
@@ -127,10 +148,16 @@ def build_section_hierarchy(ba):
                     temphead = data_header()
                     dsb = ba[i+4:i+8] # datasize bytes. at offset 0x4, length is 0x4
                     temphead.datasize = ba2int(dsb, cgfx.header.endian)
-                    mdne = ba[i+8:i+12]
-                    mdro = ba[i+12:i+16]
-                    temphead.models_dict_num_entries = ba2int(mdne, cgfx.header.endian)
-                    temphead.models_dict_reloff = ba2int(mdro, cgfx.header.endian)
+                    for j in range(16):
+                        neoff = i+8+j*8 # dict num entries offset
+                        roffoff = i+12+j*8 # dict relative offset offset
+                        type = dicttypes[j]
+                        neb = ba[neoff:neoff+4]
+                        num_entries = ba2int(neb, cgfx.header.endian)
+                        rob = ba[roffoff:roffoff+4]
+                        relative_offset = ba2int(rob, cgfx.header.endian)
+                        temphead.datadicts.append(datadict(type, num_entries, relative_offset, roffoff+4))
+
                 elif magic == "IMAG":
                     temphead = imag_header()
                 temphead.magic = magic
@@ -151,6 +178,8 @@ def main():
         fba = bytearray(infile.read()) # file byte array
         build_section_hierarchy(fba)
         
+        print("File \"%s\"" % (args[0]))
+        print("")
         cgfx.print_offset()
         cgfx.header.print()
         print("")
