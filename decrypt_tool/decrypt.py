@@ -155,7 +155,7 @@ def getNcchAesCounter(header, type): #Function based on code from ctrtool's sour
     counter = bytearray(b'\x00' * 16)
     if header.formatVersion == 2 or header.formatVersion == 0:
         counter[:8] = bytearray(header.titleId[::-1])
-        counter[8:9] = type.to_bytes(1)
+        counter[8:9] = type.to_bytes(1, "big")
     elif header.formatVersion == 1:
         x = 0
         if type == ncchSection.exheader:
@@ -318,7 +318,7 @@ def parseNCCH(fh, fsize, offs=0, idx=0, titleId='', standAlone=1, fromNcsd=0):
         tmp = fh.read(0x200)
         imp = 0x188+0x7 # index of encryption flag?
         a = tmp[:imp]
-        b = (tmp[imp]&0x2|0x4).to_bytes(1)
+        b = (tmp[imp]&0x2|0x4).to_bytes(1, "big")
         c = tmp[imp+0x1:]
         tmp = a+b+c #Set NCCH flag[7] to show that it is unencrypted
         f.write(tmp)

@@ -30,7 +30,7 @@ class dictinfo:
         self.relative_offset = ro
         self.end = e
     def print(self):
-        print("%s%s, \033[0mentries: %d, relative offset: %s0x%s\033[0m, end: 0x%s" % (color2, self.type, self.num_entries, color2, self.relative_offset.to_bytes(4).hex(), self.end.to_bytes(4).hex()))
+        print("%s%s, \033[0mentries: %d, relative offset: %s0x%s\033[0m, end: 0x%s" % (color2, self.type, self.num_entries, color2, self.relative_offset.to_bytes(4, "big").hex(), self.end.to_bytes(4, "big").hex()))
 
 class cgfxdict:
     def __init__(self):
@@ -94,7 +94,7 @@ class section:
     def get_entries(self):
         return self.entries
     def print_offset(self):
-        print("Section offset = %s0x%s" % (color1, self.offset.to_bytes(4).hex()))
+        print("Section offset = %s0x%s" % (color1, self.offset.to_bytes(4, "big").hex()))
 
 
 infile_name = ""        
@@ -104,7 +104,7 @@ cgfx = section(cgfx_header())
 ####################
 def getbyte(arr, idx):
     integer = arr[idx]
-    return integer.to_bytes(1)
+    return integer.to_bytes(1, "big")
     
 def ba2int(arr, endian):
     intarr = []
@@ -157,10 +157,10 @@ def build_section_hierarchy(ba):
     prev_off = 0
     for e in range(cgfx.header.num_entr):
         for i in range(prev_off+4, len(ba)):
-            b0 = ba[i].to_bytes(1)
-            b1 = ba[i+1].to_bytes(1)
-            b2 = ba[i+2].to_bytes(1)
-            b3 = ba[i+3].to_bytes(1)
+            b0 = ba[i].to_bytes(1, "big")
+            b1 = ba[i+1].to_bytes(1, "big")
+            b2 = ba[i+2].to_bytes(1, "big")
+            b3 = ba[i+3].to_bytes(1, "big")
             try:
                 b0 = b0.decode("utf-8")
                 b1 = b1.decode("utf-8")
