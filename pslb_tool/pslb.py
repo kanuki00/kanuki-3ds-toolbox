@@ -45,17 +45,17 @@ mapkey_tabs_store = ""
 def iflb(bytes, little_endian): # iflb = int from loose bytes
     intarr = []
     for byte in bytes:
-        intarr.append(int.from_bytes(byte))
+        intarr.append(int.from_bytes(byte, "big"))
     if little_endian:
         intarr.reverse()
     arr = bytearray(intarr)
     return int(arr.hex(), 16)
     
 def int32get(bytearray, index):
-    db1 = bytearray[index+1].to_bytes(1) # data byte 1
-    db2 = bytearray[index+2].to_bytes(1) # data byte 2
-    db3 = bytearray[index+3].to_bytes(1) # data byte 3
-    db4 = bytearray[index+4].to_bytes(1) # data byte 4
+    db1 = bytearray[index+1].to_bytes(1, "big") # data byte 1
+    db2 = bytearray[index+2].to_bytes(1, "big") # data byte 2
+    db3 = bytearray[index+3].to_bytes(1, "big") # data byte 3
+    db4 = bytearray[index+4].to_bytes(1, "big") # data byte 4
     return iflb([db1, db2, db3, db4], True) # return int that these bytes represent. in little endian form.
     
 def tabstring(count):
@@ -222,7 +222,7 @@ def convert(filename, outfilename, verbosedebug, noformat):
                 continue
         # this is absolutely horrid, but it works ~end
         
-        byte = fba[i].to_bytes(1)
+        byte = fba[i].to_bytes(1, "big")
         
         if comp > 0:
             comp -= 1
@@ -239,11 +239,11 @@ def convert(filename, outfilename, verbosedebug, noformat):
                 stage1 = False
             if stage1:
                 stage2 = True                               ### STAGE 2
-                db2 = fba[i+1].to_bytes(1)
-                db3 = fba[i+2].to_bytes(1)
-                db4 = fba[i+3].to_bytes(1)
+                db2 = fba[i+1].to_bytes(1, "big")
+                db3 = fba[i+2].to_bytes(1, "big")
+                db4 = fba[i+3].to_bytes(1, "big")
                 pstrlen = iflb([byte, db2, db3, db4], True) # possible string length
-                ssbyte = fba[i+4].to_bytes(1)               # string start byte
+                ssbyte = fba[i+4].to_bytes(1, "big")               # string start byte
                 if i+3+pstrlen >= fba_len:
                     stage2 = False
                 if ssbyte not in printbytes:
@@ -252,7 +252,7 @@ def convert(filename, outfilename, verbosedebug, noformat):
                     stage3 = True                           ### STAGE 3
                     pstr = ""                               # possible string
                     for j in range(pstrlen):
-                        testbyte = fba[i+4+j].to_bytes(1)
+                        testbyte = fba[i+4+j].to_bytes(1, "big")
                         if testbyte not in printbytes:
                             stage3 = False
                         else:
@@ -268,7 +268,7 @@ def convert(filename, outfilename, verbosedebug, noformat):
             string_len = int32get(fba, i)
             string_literal = ""
             for j in range(string_len):
-                decodebyte = fba[i+5+j].to_bytes(1)
+                decodebyte = fba[i+5+j].to_bytes(1, "big")
                 try:
                     string_literal+=decodebyte.decode("utf-8")
                 except UnicodeError:
@@ -291,10 +291,10 @@ def convert(filename, outfilename, verbosedebug, noformat):
                 stage1 = False
             if stage1:
                 intarr = []
-                intarr.append(int.from_bytes(fba[i+1].to_bytes(1)))
-                intarr.append(int.from_bytes(fba[i+2].to_bytes(1)))
-                intarr.append(int.from_bytes(fba[i+3].to_bytes(1)))
-                intarr.append(int.from_bytes(fba[i+4].to_bytes(1)))
+                intarr.append(int.from_bytes(fba[i+1].to_bytes(1, "big"), "big"))
+                intarr.append(int.from_bytes(fba[i+2].to_bytes(1, "big"), "big"))
+                intarr.append(int.from_bytes(fba[i+3].to_bytes(1, "big"), "big"))
+                intarr.append(int.from_bytes(fba[i+4].to_bytes(1, "big"), "big"))
                 intarr.reverse() # reverse because we want little endian
                 floathex = bytearray(intarr).hex()
                 float_literal = struct.unpack("!f", bytes.fromhex(floathex))[0]
@@ -302,8 +302,8 @@ def convert(filename, outfilename, verbosedebug, noformat):
         # Byte
         if byte == b"\x04" and comp == 0 and not map_key_flag:
             byte_flag = True
-            nextbyte = fba[i+1].to_bytes(1)
-            byte_literal = int.from_bytes(nextbyte)
+            nextbyte = fba[i+1].to_bytes(1, "big")
+            byte_literal = int.from_bytes(nextbyte, "big")
             byte_literal_hex = "0x"+nextbyte.hex()
             if byte_literal_hex == "0x00":
                 byte_literal_bool = "false"
